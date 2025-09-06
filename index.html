@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"/>
+<title>VSNMD - Kurumlar Seansı</title>
+<style>
+  :root { --green:#0a932f; --red:#c1121f; --bg:#f5f5f5; --card:#fff; --bd:#cfcfcf; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:20px; background:var(--bg); font:12px/1.35 Arial, Helvetica, sans-serif; color:#000; }
+  .wrap { display:flex; gap:20px; align-items:flex-start; }
+  .panel { width:650px; background:var(--card); border:1px solid var(--bd); border-radius:8px; padding:10px; }
+  .header { display:flex; justify-content:space-between; align-items:center; font-weight:700; font-size:14px; padding-bottom:6px; border-bottom:1px solid var(--bd); }
+  .price { font-size:16px; }
+  .green { color:var(--green); }
+  .red { color:var(--red); }
+  table { width:100%; border-collapse:collapse; margin:8px 0; font-size:11px; }
+  th, td { border:1px solid var(--bd); padding:3px 4px; text-align:center; }
+  thead th { background:#fafafa; }
+  .trades { height:170px; overflow:auto; }
+  .flash-green { animation:flashG 0.5s ease; }
+  .flash-red { animation:flashR 0.5s ease; }
+  @keyframes flashG { 0% { background:#d7f8d9; } 100% { background:transparent; } }
+  @keyframes flashR { 0% { background:#ffd7d7; } 100% { background:transparent; } }
+  #trades td { border:none !important; }
+  #trades tr.buy-row td { color:var(--green); font-weight:600; }
+  #trades tr.sell-row td { color:var(--red); font-weight:600; }
+  .sidepanel { width:300px; background:var(--card); border:1px solid var(--bd); border-radius:8px; padding:12px; }
+  .controls { display:grid; grid-template-columns:1fr 1fr; gap:6px 10px; margin-top:8px; }
+  .controls label { display:flex; align-items:center; gap:6px; font-size:11px; }
+  .controls input[type="number"], .controls select { width:100%; padding:4px 6px; font-size:11px; }
+  .controls .row { grid-column:1/-1; display:flex; gap:8px; flex-wrap:wrap; }
+  .controls button { padding:6px 10px; font-size:11px; border:1px solid var(--bd); background:#fff; border-radius:6px; cursor:pointer; }
+  .controls button:hover { filter:brightness(0.98); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="panel" id="panel">
+    <div class="header">
+      <span>VSNMD</span>
+      <span class="price green" id="price">188,00 ▲0,00%</span>
+    </div>
+    <div style="margin:10px 0;">
+      <button onclick="showTab('orderbookTab')">Emir Defteri</button>
+      <button onclick="showTab('takasTab')">Takas</button>
+    </div>
+    <div id="orderbookTab">
+      <table>
+        <thead>
+          <tr>
+            <th class="green" colspan="3">Alıcılar</th>
+            <th class="red" colspan="3">Satıcılar</th>
+          </tr>
+          <tr>
+            <th>Alıcı</th><th>Lot</th><th>Ort. Maliyet</th>
+            <th>Satıcı</th><th>Lot</th><th>Ort. Maliyet</th>
+          </tr>
+        </thead>
+        <tbody id="brokerTable"></tbody>
+      </table>
+      <table>
+        <thead><tr><th>Alış Lot</th><th>Fiyat</th><th>Satış Lot</th></tr></thead>
+        <tbody id="orderbook"></tbody>
+      </table>
+      <div class="trades">
+        <table>
+          <thead><tr><th>Saat</th><th>Lot</th><th>Fiyat</th><th>Alıcı</th><th>Satıcı</th></tr></thead>
+          <tbody id="trades"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="takasTab" style="display:none;">
+      <table>
+        <thead><tr><th>Kurum</th><th>Lot</th></tr></thead>
+        <tbody id="takasTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="sidepanel" id="manualPanel" style="display:none;">
+    <div class="controls">
+      <label>Lot
+        <input id="lotInput" placeholder="Lot" type="number"/>
+      </label>
+      <label>Fiyat
+        <select id="priceSelect"></select>
+      </label>
+      <label>Benim Kurumum
+        <select id="userBroker"></select>
+      </label>
+      <label>Emir Dağılımı
+        <select id="spreadMode">
+          <option value="single">Tek Kademe</option>
+          <option value="all">Tüm Kademelere</option>
+        </select>
+      </label>
+      <label>Tekrar
+        <input id="repeatInput" placeholder="0 = 1 kere" type="number" value="0"/>
+      </label>
+      <label><input id="alanSatma" type="checkbox"/> Alanı Satma Modu</label>
+      <label><input id="satanAlma" type="checkbox"/> Satanı Alma Modu</label>
+      <div class="row">
+        <button onclick="manualOrder('buy')">Alış Ekle</button>
+        <button onclick="manualOrder('sell')">Satış Ekle</button>
+      </div>
+      <div class="row">
+        <button onclick="clearData()">Verileri Temizle</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toggleButtonWrapper" style="position:fixed; bottom:8px; right:8px; z-index:9999;">
+  <button onclick="togglePanel()" style="background:#ccc; border:none; padding:2px 6px; border-radius:4px; cursor:pointer; font-size:10px;">▼</button>
+</div>
+
+<script>
+function showTab(tabId){
+  document.getElementById('orderbookTab').style.display='none';
+  document.getElementById('takasTab').style.display='none';
+  document.getElementById(tabId).style.display='block';
+}
+
+function togglePanel(){
+  const panel=document.getElementById('manualPanel');
+  panel.style.display=(panel.style.display==='none')?'block':'none';
+}
+
+function manualOrder(type){
+  alert(type + " emri eklendi!");
+}
+
+function clearData(){
+  alert("Veriler temizlendi!");
+}
+</script>
+</body>
+</html>
